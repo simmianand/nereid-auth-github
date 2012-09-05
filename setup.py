@@ -11,7 +11,7 @@ major_version = int(major_version)
 minor_version = int(minor_version)
 module_name = 'nereid_auth_github'
 
-requires = ['flask-oauth']
+requires = ['flask-oauth', 'requests']
 for dep in info.get('depends', []):
     if not re.match(r'(ir|res|workflow|webdav|nereid)(\W|$)', dep):
         requires.append('trytond_%s >= %s.%s, < %s.%s' %

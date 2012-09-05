@@ -106,7 +106,6 @@ class NereidUser(ModelSQL, ModelView):
                 data = github.handle_unknown_response()
             github.free_request_token()
         except Exception, exc:
-            raise
             current_app.logger.error("Github login failed %s" % exc)
             flash(_("We cannot talk to github at this time. Please try again"))
             return redirect(
@@ -144,6 +143,7 @@ class NereidUser(ModelSQL, ModelView):
             )
             user_id = self.create({
                 'name': me['name'],
+                'display_name': me['name'],
                 'email': me['email'],
                 'github_id': me['id'],
                 'addresses': False,
