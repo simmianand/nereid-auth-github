@@ -4,38 +4,35 @@
 
     Github based user authentication code
 
-    :copyright: (c) 2012 by Openlabs Technologies & Consulting (P) LTD
+    :copyright: (c) 2012-2013 by Openlabs Technologies & Consulting (P) LTD
     :license: GPLv3, see LICENSE for more details.
 """
 from nereid import url_for, flash, redirect, current_app
 from nereid.globals import session, request
 from nereid.signals import login, failed_login
 from flaskext.oauth import OAuth
-from trytond.model import ModelSQL, ModelView, fields
-from trytond.pool import Pool
+from trytond.model import fields
+from trytond.pool import PoolMeta
 import requests
 
 from .i18n import _
 
 
-class Website(ModelSQL, ModelView):
+__all__ = ['Website', 'NereidUser']
+__metaclass__ = PoolMeta
+
+
+class Website:
     """Add Github settings"""
-    _name = "nereid.website"
+    __name__ = "nereid.website"
 
     github_id = fields.Char("Github client ID")
     github_secret = fields.Char("Github Client Secret")
 
-    def get_github_oauth_client(self, site=None,
-            scope='', token='github_oauth_token'):
-        """Returns a instance of LinkedIn OAuth
-
-        :param site: Browserecord of the website, If not specified, it will be
-                     guessed from the request context
+    def get_github_oauth_client(self, scope='', token='github_oauth_token'):
+        """Returns a instance of Github OAuth
         """
-        if site is None:
-            site = request.nereid_website
-
-        if not all([site.github_id, site.github_secret]):
+        if not all([self.github_id, self.github_secret]):
             current_app.logger.error("Github api settings are missing")
             flash(_("Github login is not available at the moment"))
             return None
@@ -46,31 +43,28 @@ class Website(ModelSQL, ModelView):
             request_token_url=None,
             access_token_url='/login/oauth/access_token',
             authorize_url='/login/oauth/authorize',
-            consumer_key=site.github_id,
-            consumer_secret=site.github_secret,
+            consumer_key=self.github_id,
+            consumer_secret=self.github_secret,
             request_token_params={'scope': scope},
             access_token_method="POST",
         )
         github.tokengetter_func = lambda *a: session.get(token)
         return github
 
-Website()
 
-
-class NereidUser(ModelSQL, ModelView):
+class NereidUser:
     "Nereid User"
-    _name = "nereid.user"
+    __name__ = "nereid.user"
 
     github_id = fields.Integer('Github ID')
     github_url = fields.Char('Github URL')
 
-    def github_login(self):
-        """The URL to which a new request to authenticate to linedin begins
+    @classmethod
+    def github_login(cls):
+        """The URL to which a new request to authenticate to github begins
         Usually issues a redirect.
         """
-        website_obj = Pool().get('nereid.website')
-
-        github = website_obj.get_github_oauth_client()
+        github = request.nereid_website.get_github_oauth_client()
         if github is None:
             return redirect(
                 request.referrer or url_for('nereid.website.login')
@@ -82,13 +76,12 @@ class NereidUser(ModelSQL, ModelView):
             )
         )
 
-    def github_authorized_login(self):
+    @classmethod
+    def github_authorized_login(cls):
         """Authorized handler to which github will redirect the user to
         after the login attempt is made.
         """
-        website_obj = Pool().get('nereid.website')
-
-        github = website_obj.get_github_oauth_client()
+        github = request.nereid_website.get_github_oauth_client()
         if github is None:
             return redirect(
                 request.referrer or url_for('nereid.website.login')
@@ -117,7 +110,7 @@ class NereidUser(ModelSQL, ModelView):
                 _("Access was denied to github: %(reason)s",
                 reason=request.args['error_reason'])
             )
-            failed_login.send(self, form=data)
+            failed_login.send(form=data)
             return redirect(url_for('nereid.website.login'))
 
         # Write the oauth token to the session
@@ -130,18 +123,18 @@ class NereidUser(ModelSQL, ModelView):
         ).json
 
         # Find the user
-        user_ids = self.search([
+        users = cls.search([
             ('email', '=', me['email']),
             ('company', '=', request.nereid_website.company.id),
         ])
-        if not user_ids:
+        if not users:
             current_app.logger.debug(
                 "No Github user with email %s" % me['email']
             )
             current_app.logger.debug(
                 "Registering new user %s" % me['name']
             )
-            user_id = self.create({
+            user = cls.create({
                 'name': me['name'],
                 'display_name': me['name'],
                 'email': me['email'],
@@ -153,20 +146,19 @@ class NereidUser(ModelSQL, ModelView):
                 _('Thanks for registering with us using github')
             )
         else:
-            user_id, = user_ids
+            user, = users
 
         # Add the user to session and trigger signals
-        session['user'] = user_id
-        user = self.browse(user_id)
+        session['user'] = user.id
         if not user.github_id:
-            self.write(
-                user_id, {
+            cls.write(
+                [user], {
                     'github_id': me['id'],
                     'github_url': me['html_url']
                 }
             )
         flash(_("You are now logged in. Welcome %(name)s", name=user.name))
-        login.send(self)
+        login.send()
         if request.is_xhr:
             return 'OK'
         return redirect(
@@ -174,6 +166,3 @@ class NereidUser(ModelSQL, ModelView):
                 'next', url_for('nereid.website.home')
             )
         )
-
-
-NereidUser()
