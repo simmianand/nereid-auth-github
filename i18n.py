@@ -3,7 +3,7 @@
 
     Internationalisation for Nereid
 
-    :copyright: (c) 2010-2012 by Openlabs Technologies & Consulting (P) Ltd.
+    :copyright: (c) 2010-2013 by Openlabs Technologies & Consulting (P) Ltd.
     :license: GPLv3, see LICENSE for more details
 
     WARNING: This is incomplete and is under development
@@ -46,7 +46,8 @@ def get_translations():
 
 
 def gettext(string, **variables):
-    """Translates a string with the current locale and passes in the
+    """
+    Translates a string with the current locale and passes in the
     given keyword arguments as mapping to a string formatting string.
 
     ::
@@ -61,7 +62,8 @@ def gettext(string, **variables):
 
 
 def ngettext(singular, plural, n, **variables):
-    """Translates a string with the current locale and passes it to the 
+    """
+    Translates a string with the current locale and passes it to the
     ngettext API of the translations object
     """
     t = get_translations()
@@ -72,7 +74,8 @@ def ngettext(singular, plural, n, **variables):
 
 
 def make_lazy_gettext(lookup_func):
-    """Creates a lazy gettext function dispatches to a gettext
+    """
+    Creates a lazy gettext function dispatches to a gettext
     function as returned by `lookup_func`.
 
     :copyright: (c) 2010 by Armin Ronacher.
